@@ -1,90 +1,59 @@
 # NYC Taxi Demand Forecasting
 
 [![CI](https://github.com/ccccarloswd/nyc-taxi-demand/actions/workflows/ci.yml/badge.svg)](https://github.com/ccccarloswd/nyc-taxi-demand/actions/workflows/ci.yml)
-![Python](https://img.shields.io/badge/python-3.12-blue)
-![Status](https://img.shields.io/badge/status-in%20progress-orange)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-> 🚧 **Work in progress.** This project is being built in public, phase by phase.
-> The roadmap below shows what is done and what comes next.
+How many trips will start in Midtown at 6 pm next Friday? And in JFK on a rainy Sunday
+morning? This project is about answering that kind of question: forecasting hourly trip
+demand for each taxi zone in New York City.
 
-End-to-end pipeline that forecasts **hourly trip demand for each of NYC's 263 taxi zones**,
-using several years of public [NYC TLC trip records](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page)
-(yellow taxis and Uber/Lyft, hundreds of millions of trips).
+The data comes from the [NYC Taxi & Limousine Commission](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page),
+which publishes every yellow taxi, green taxi and Uber/Lyft trip in the city, month by month.
+Put together it's well over a billion rows, which is the main reason I picked it: it's a
+dataset where you actually need tools like Spark, instead of loading everything into pandas
+and hoping it fits in memory.
 
-The goal is not only a good model, but a project built the way production data teams work:
-a layered data lake, data-quality checks, leakage-free time-series validation, tracked
-experiments, tests, CI and a deployed API and dashboard.
+I'm building it as a personal project to get better at data engineering and machine learning,
+and I'm trying to do it the way it would be done in a real team, with tests, CI and decisions
+written down, rather than as a single notebook.
 
-## Roadmap
+## Where it stands
 
-- [x] **Phase 0 – Foundations:** project layout, tooling (uv, ruff, mypy, pytest), pre-commit, CI
-- [ ] **Phase 1 – Ingestion (bronze):** incremental, idempotent download of raw TLC Parquet files
-- [ ] **Phase 2 – Cleaning & data quality (silver):** validation rules, quality report, tests
-- [ ] **Phase 3 – Aggregation & EDA (gold):** zone × hour demand table, exploratory analysis, Spark vs DuckDB benchmark
-- [ ] **Phase 4 – Baselines & validation:** seasonal baselines, rolling-origin backtesting, WAPE / MASE
-- [ ] **Phase 5 – Modelling:** LightGBM global model, weather & calendar features, MLflow, error analysis, prediction intervals
-- [ ] **Phase 6 – Serving:** FastAPI service, Streamlit dashboard, Docker, public demo
-- [ ] **Phase 7 – Extension:** causal impact of NYC congestion pricing (Jan 2025) on taxi vs ride-hailing demand
+It's early days. For now the repository has the project setup: the Python package, tooling,
+tests and a CI pipeline that runs on every push. The data work comes next.
 
-## Planned architecture
+## The plan
 
-```text
-TLC Parquet files ──► bronze (raw, as downloaded)
-                        │  PySpark: schema enforcement, quality rules
-                        ▼
-                      silver (clean trips)
-                        │  PySpark: zone × hour aggregation
-                        ▼
-                      gold (demand table) + weather + holidays
-                        │
-                        ▼
-              features ──► models (baselines, LightGBM) ──► MLflow
-                                       │
-                                       ▼
-                              FastAPI  +  Streamlit
-```
+The first part is the data pipeline: downloading the raw monthly files, cleaning them (there
+are trips with negative fares, dates in the wrong year and other surprises) and turning them
+into a table of demand per zone and hour.
 
-## Tech stack
+With that in place, I'll start from simple baselines and see how much a gradient boosting
+model can improve on them. The tricky part with time series is validating honestly, without
+letting the model peek at the future, so I'll spend some time on that.
 
-| Area | Tools |
-|---|---|
-| Processing | PySpark, DuckDB (benchmark) |
-| Modelling | LightGBM, scikit-learn, MLflow |
-| Serving | FastAPI, Streamlit, Docker |
-| Quality | pytest, ruff, mypy, pre-commit, GitHub Actions |
-| Environment | uv, Python 3.12, Java 17 |
+If the results are good, I'd like to serve the forecasts through a small API and a dashboard.
+There are also a couple of side questions I find interesting, like whether weather helps the
+forecasts, or how congestion pricing in Manhattan changed taxi and ride-hailing demand after
+January 2025. I'll see where those fit once the core is working.
 
-## Getting started
+## Running it
 
-Requirements: Linux, macOS or WSL2, [uv](https://docs.astral.sh/uv/) and Java 17.
+You'll need Linux, macOS or WSL2, [uv](https://docs.astral.sh/uv/) and Java 17 (for Spark).
 
 ```bash
 git clone https://github.com/ccccarloswd/nyc-taxi-demand.git
 cd nyc-taxi-demand
-make install   # create the virtual env and install git hooks
-make check     # lint + type check + tests
+make install
+make check
 ```
 
-Run `make help` to see every available command.
+`make help` shows the other commands. Raw data is never committed to the repo; the pipeline
+will download it into `data/`.
 
-## Project structure
+## Notes
 
-```text
-├── src/nyc_taxi/        # installable Python package (pipeline + models)
-├── tests/               # unit tests
-├── docs/decisions/      # architecture decision records (ADRs)
-├── .github/workflows/   # CI pipeline
-├── pyproject.toml       # dependencies and tool configuration
-└── Makefile             # common commands
-```
+I keep a short record of the main technical decisions and why I made them in
+[`docs/decisions`](docs/decisions/).
 
-`data/` is created locally by the pipeline and is never committed.
-
-## Design decisions
-
-Key technical choices and their trade-offs are documented in [`docs/decisions/`](docs/decisions/).
-
-## License
-
-[MIT](LICENSE)
+Trip data © NYC Taxi & Limousine Commission. Code under the [MIT license](LICENSE).
