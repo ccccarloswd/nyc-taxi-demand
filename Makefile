@@ -1,4 +1,7 @@
-.PHONY: help install format lint typecheck test check
+.PHONY: help install format lint typecheck test check data
+
+START ?= 2023-01
+END ?= 2023-02
 
 help: ## Show available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
@@ -22,3 +25,6 @@ test: ## Run the test suite with coverage
 	uv run pytest --cov --cov-report=term-missing
 
 check: lint typecheck test ## Everything CI runs
+
+data: ## Download raw yellow taxi files (make data START=2023-01 END=2023-02)
+	uv run python -m nyc_taxi.ingest --start $(START) --end $(END)
